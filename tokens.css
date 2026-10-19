@@ -1,0 +1,57 @@
+/* ============================================================
+   Design tokens — extraídos de goodreads.com em 18/10/2026
+   (computed styles da Home, Página de livro, Listas e Busca)
+   ============================================================ */
+:root {
+  /* Tipografia (Goodreads usa Lato para UI e Merriweather/Copernicus para títulos editoriais) */
+  --font-ui: 'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-serif: 'Merriweather', Georgia, 'Times New Roman', serif;
+  --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px;
+  --fs-16: 16px; --fs-18: 18px; --fs-24: 24px; --fs-28: 28px; --fs-36: 36px;
+
+  /* Texto */
+  --c-text: #181818;        /* rgb(24,24,24) — texto principal */
+  --c-text-2: #333333;      /* rgb(51,51,51) */
+  --c-text-3: #1e1915;      /* rgb(30,25,21) — página de livro */
+  --c-muted: #666666;       /* 5.1:1 sobre branco, 4.7:1 sobre bege */
+  --c-muted-2: #707070;
+
+  /* Marca */
+  --c-brand: #382110;       /* marrom goodreads (logo, botão "Sign up with email") */
+  --c-link: #00635d;        /* verde-petróleo dos links e CTAs de texto */
+  --c-green: #3f8363;       /* botão "Want to Read" */
+  --c-green-hover: #377458;
+  --c-amazon: #f5d47a;      /* botão "Continue with Amazon" */
+  --c-gold: #c9a23f;        /* Choice Awards */
+  --c-star: #c27c0e;        /* estrelas (3.4:1 sobre branco) */
+  --c-ui: #858585;          /* bordas de controles e ícones (3.6:1, WCAG 1.4.11) */
+  --c-olive: #617054;       /* hero "The Big Books of Fall" */
+
+  /* Fundos */
+  --c-bg: #ffffff;
+  --c-bg-beige: #f4f1ea;    /* header, footer, cards */
+  --c-bg-cream: #faf8f6;
+  --c-bg-hero: #f4f2e9;
+  --c-border: #d8d8d8;
+  --c-border-2: #e5e2db;
+
+  /* Forma */
+  --r-sm: 3px;              /* botões clássicos */
+  --r-md: 8px;
+  --r-lg: 10px;             /* cards */
+  --r-pill: 30px;           /* "Want to Read" pill */
+  --shadow-card: 0 1px 3px rgba(0,0,0,.18), 0 6px 16px rgba(0,0,0,.08);
+  --shadow-cover: 0 2px 6px rgba(0,0,0,.25);
+
+  /* Movimento (uma curva e três durações para tudo) */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);   /* ease-out suave */
+  --dur-fast: 180ms;   /* hover, cor, borda */
+  --dur-base: 320ms;   /* transform de cards e capas */
+  --dur-slow: 300ms;   /* capa do hero, barras */
+  --dur-drawer: 360ms; /* drawer e backdrop */
+
+  /* Espaço */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+  --container: 1200px;
+  --gutter: 16px;
+}

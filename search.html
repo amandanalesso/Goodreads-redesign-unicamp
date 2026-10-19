@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search — Goodreads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<!--
+  REDESIGN — Busca. Typeahead só a partir de 3 caracteres (status visível, H1),
+  filtros avançados (#21), série em ordem de leitura com Livro 1 no topo (#8),
+  aba "Lists · reader-curated" no lugar de "Listopia" (#15), estado vazio com CTA e
+  "did you mean" (#13 / H9), atalho "/" (#20).
+-->
+<div id="site-header"></div>
+
+<main class="container" id="main" tabindex="-1">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a> › <span aria-current="page">Search</span></nav>
+  <div class="page-head page-head--search">
+    <h1>Search</h1>
+  </div>
+
+  <form class="search-box" id="search-form" role="search" autocomplete="off">
+    <label class="sr-only" for="big-search">Search</label>
+    <input id="big-search" type="search" role="combobox" placeholder="Title, author, series or ISBN" aria-autocomplete="list" aria-expanded="false" aria-controls="typeahead" autofocus>
+    <select class="select scope-select" id="scope" aria-label="Search in"><option value="all">All</option><option value="title">Title</option><option value="author">Author</option><option value="isbn">ISBN</option></select>
+    <button class="search-go" type="submit" aria-label="Search">&#9906;</button>
+    <div class="typeahead" id="typeahead" role="listbox" aria-label="Suggestions"></div>
+  </form>
+  <div class="search-hint" id="search-hint" aria-live="polite">Type at least 3 characters. Press <b>/</b> anywhere to jump here.</div>
+
+  <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="results" hidden>
+    <div class="results-bar" id="results-bar"></div>
+    <div class="results-grid" id="results-grid"></div>
+    <div id="results-extra"></div>
+  </div>
+
+  <section id="browse-all">
+    <div class="row" style="padding-top:8px">
+      <div class="row-head"><h2>Try a search</h2></div>
+      <div class="suggest" style="display:flex;flex-wrap:wrap;gap:8px">
+        <button class="chip chip-btn" data-q="harry potter">harry potter</button>
+        <button class="chip chip-btn" data-q="rebecca yarros">rebecca yarros</button>
+        <button class="chip chip-btn" data-q="dune">dune</button>
+        <button class="chip chip-btn" data-q="torto arado">torto arado</button>
+        <button class="chip chip-btn" data-q="the great gatsbee">the great gatsbee</button>
+        <button class="chip chip-btn" data-q="zzzz">zzzz</button>
+      </div>
+    </div>
+    <div id="browse-rows"></div>
+  </section>
+</main>
+
+<div id="site-footer"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/search.js"></script>
+<script>
+renderChrome('search');
+const input = document.getElementById('big-search');
+const scopeOf = () => document.getElementById('scope').value;
+const ta = initTypeahead(input, document.getElementById('typeahead'), document.getElementById('search-hint'), (q, scope) => { if (scope) document.getElementById('scope').value = scope; runSearch(q, scope || scopeOf()); });
+
+document.getElementById('search-form').addEventListener('submit', e => {
+  e.preventDefault(); ta.close();
+  const q = input.value.trim();
+  if (q.length < 3) { const h = document.getElementById('search-hint'); h.textContent = 'Please type at least 3 characters to search.'; h.classList.add('warn'); input.focus(); return; }
+  runSearch(q, scopeOf());
+});
+document.getElementById('scope').addEventListener('change', () => { if (CURRENT_Q) runSearch(CURRENT_Q, scopeOf()); });
+document.querySelectorAll('#browse-all .chip-btn').forEach(c => c.onclick = () => { input.value = c.dataset.q; runSearch(c.dataset.q, 'all'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+// Rows da área "Browse" (antes de pesquisar)
+const br = document.getElementById('browse-rows');
+renderRow(br, { title: 'Popular right now', books: [...BOOKS].sort((a, b) => b.wantToRead - a.wantToRead).slice(0, 12), label: 'community' });
+renderRow(br, { title: 'New Releases', books: BOOKS.filter(b => b.year >= 2024), label: 'editorial' });
+br.querySelectorAll('.row > .container').forEach(c => { c.classList.remove('container'); });
+
+// Deep links: ?q=  e ?genre=
+const q0 = qs('q'), g0 = qs('genre');
+if (q0) { input.value = q0; const s0 = qs('scope'); if (s0) document.getElementById('scope').value = s0; runSearch(q0, s0 || 'all'); }
+else if (g0) { SF.genres.add(g0); document.getElementById('results').hidden = false; document.getElementById('browse-all').hidden = true; renderResults(); }
+</script>
+</body>
+</html>

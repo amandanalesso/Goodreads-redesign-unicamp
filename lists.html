@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lists — Goodreads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<!--
+  REDESIGN — Listas. "Lists" substitui "Listopia" com explicação (#15);
+  distinção visual Editorial vs Community (#11); breadcrumb consistente (#7);
+  ranking vertical com Buy como ação primária e filtros dentro da lista.
+-->
+<div id="site-header"></div>
+
+<main class="container" id="main" tabindex="-1">
+  <section id="lists-index">
+    <div class="page-head">
+      <h1>Lists</h1>
+      <p>Rankings curated by Goodreads editors and voted by millions of readers. Pick a list, filter it, and find the book you want to buy next.</p>
+    </div>
+    <div class="tabs" id="list-tabs">
+      <button data-t="all" class="on" aria-pressed="true">All</button>
+      <button data-t="editorial" aria-pressed="false">Editorial</button>
+      <button data-t="community" aria-pressed="false">Community</button>
+      <button data-t="awards" aria-pressed="false">Choice Awards</button>
+    </div>
+    <div class="lists-grid" id="lists-grid" style="margin-top:24px"></div>
+  </section>
+
+  <section id="list-detail" hidden>
+    <div class="list-detail-head">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a> › <a href="lists.html">Lists</a> › <span id="ld-crumb" aria-current="page"></span></nav>
+        <h1 id="ld-title"></h1>
+        <p id="ld-blurb"></p>
+      </div>
+      <div><span id="ld-curator"></span></div>
+    </div>
+    <div class="list-toolbar">
+      <div class="period-tabs" id="ld-period"><button data-p="all" class="on" aria-pressed="true">All time</button><button data-p="year" aria-pressed="false">Last 12 months</button><button data-p="month" aria-pressed="false">This month</button><button data-p="week" aria-pressed="false">This week</button></div>
+      <select class="select" id="ld-genre" aria-label="Genre"><option value="">All genres</option></select>
+      <select class="select" id="ld-format" aria-label="Format"><option value="">Any format</option><option>Kindle</option><option>Paperback</option><option>Hardcover</option><option>Audiobook</option></select>
+      <select class="select" id="ld-sort" aria-label="Sort by"><option value="rank">List rank</option><option value="rating">Rating</option><option value="popular">Most rated</option><option value="price">Price: low to high</option></select>
+      <span class="count" id="ld-count"></span>
+    </div>
+    <div class="rank-list" id="ld-items"></div>
+    <div class="pagination" id="ld-pages"></div>
+  </section>
+</main>
+
+<div id="site-footer"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+renderChrome('lists');
+
+/* ---- Índice de listas ---- */
+let tab = 'all';
+function renderIndex() {
+  const ls = LISTS.filter(l => tab === 'all' || (tab === 'awards' ? l.id === 'choice-2025' : l.curator === tab));
+  document.getElementById('lists-grid').innerHTML = ls.map(l => {
+    const bs = l.books.slice(0, 3).map(id => BOOK_BY_ID[id]);
+    return `<article class="list-card" data-list="${l.id}" tabindex="0">
+      <div class="lc-covers">${bs.map(b => `<img src="${b.cover}" alt="">`).join('')}</div>
+      <h3>${esc(l.name)}</h3><p>${esc(l.blurb)}</p>
+      <div class="lc-meta"><span class="chip ${l.curator}">${l.curator === 'editorial' ? 'Editorial' : 'Community'}</span><span>${l.books.length} books</span>${l.votes ? `<span>· ${fmtCount(l.votes)} votes</span>` : ''}</div>
+    </article>`;
+  }).join('');
+}
+document.getElementById('list-tabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; tab = b.dataset.t; document.querySelectorAll('#list-tabs button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); renderIndex(); };
+document.getElementById('lists-grid').addEventListener('click', e => { const c = e.target.closest('.list-card'); if (c) openList(c.dataset.list); });
+document.getElementById('lists-grid').addEventListener('keydown', e => { if (e.key === 'Enter') { const c = e.target.closest('.list-card'); if (c) openList(c.dataset.list); } });
+renderIndex();
+
+/* ---- Detalhe de lista ---- */
+const LD = { list: null, period: 'all', genre: '', format: '', sort: 'rank', page: 1, perPage: 12 };
+const PERIOD_ORDER = { week: 0, month: 1, year: 2, all: 3 };
+const gSel = document.getElementById('ld-genre'); GENRES.forEach(g => gSel.insertAdjacentHTML('beforeend', `<option>${g}</option>`));
+
+function openList(id, push = true) {
+  const l = LISTS.find(x => x.id === id); if (!l) return;
+  LD.list = l; LD.page = 1;
+  if (push) history.pushState(null, '', `lists.html?list=${id}`);
+  document.getElementById('lists-index').hidden = true;
+  document.getElementById('list-detail').hidden = false;
+  document.getElementById('ld-crumb').textContent = l.name;
+  document.getElementById('ld-title').textContent = l.name;
+  document.getElementById('ld-blurb').textContent = l.blurb + (l.votes ? ` ${fmtNum(l.votes)} votes.` : '');
+  document.getElementById('ld-curator').innerHTML = `<span class="chip ${l.curator}">${l.curator === 'editorial' ? 'Editorial · curated by Goodreads' : 'Community · voted by readers'}</span>`;
+  document.title = `${l.name} — Goodreads Lists`;
+  renderList();
+  window.scrollTo({ top: 0 });
+}
+function renderList() {
+  const all = listBooks(LD.list.id).map((b, i) => ({ b, rank: i + 1 }));
+  let items = all.filter(({ b }) => PERIOD_ORDER[b.trend] <= PERIOD_ORDER[LD.period] && (!LD.genre || b.genre === LD.genre) && (!LD.format || b.formats.includes(LD.format)));
+  if (LD.sort === 'rating') items.sort((x, y) => y.b.rating - x.b.rating);
+  else if (LD.sort === 'popular') items.sort((x, y) => y.b.ratings - x.b.ratings);
+  else if (LD.sort === 'price') items.sort((x, y) => minPrice(x.b) - minPrice(y.b));
+  const pages = Math.max(1, Math.ceil(items.length / LD.perPage));
+  LD.page = Math.min(LD.page, pages);
+  const slice = items.slice((LD.page - 1) * LD.perPage, LD.page * LD.perPage);
+  document.getElementById('ld-count').textContent = `${items.length} of ${all.length} books`;
+  const root = document.getElementById('ld-items');
+  root.innerHTML = slice.length ? slice.map(({ b, rank }) => `
+    <article class="rank-item">
+      <div class="pos ${rank <= 3 ? 'top' : ''}">${rank}</div>
+      <button type="button" class="ri-cover" data-action="open" data-id="${b.id}" aria-label="Open ${esc(b.title)}">${coverHTML(b)}</button>
+      <div>
+        <button type="button" class="ri-title" data-action="open" data-id="${b.id}">${esc(b.title)}${b.series ? ` <span style="font-weight:400;color:var(--c-muted)">(${esc(b.series)} #${b.volume})</span>` : ''}</button>
+        <div class="ri-author">${esc(b.author)}</div>
+        ${starsHTML(b)}
+        <div class="ri-facts">${esc(b.genre)} · ${b.pages} pages · ${b.year < 0 ? Math.abs(b.year) + ' BC' : b.year}${b.award ? ` · <span class="chip award" style="height:18px;font-size:10px">★ Choice Award · ${esc(b.award)}</span>` : ''}</div>
+      </div>
+      <div class="ri-actions">
+        <button class="btn btn-buy" data-action="buy" data-id="${b.id}">Buy · ${money(minPrice(b))}</button>
+        <button class="btn btn-outline" data-action="want" data-id="${b.id}">Want to Read</button>
+        <span class="ri-price">${b.formats.length} formats · from <b>${money(minPrice(b))}</b></span>
+      </div>
+    </article>`).join('') : `<div class="empty"><div class="empty-art">⚙</div><h2>No books match these filters</h2><p>Try another period, genre or format.</p><button class="btn btn-primary" onclick="resetListFilters()">Clear filters</button></div>`;
+  document.getElementById('ld-pages').innerHTML = pages > 1 ? Array.from({ length: pages }, (_, i) => `<button class="${i + 1 === LD.page ? 'on' : ''}" data-pg="${i + 1}">${i + 1}</button>`).join('') : '';
+}
+function resetListFilters() { Object.assign(LD, { period: 'all', genre: '', format: '', sort: 'rank', page: 1 }); gSel.value = ''; document.getElementById('ld-format').value = ''; document.getElementById('ld-sort').value = 'rank'; document.querySelectorAll('#ld-period button').forEach(x => { x.classList.toggle('on', x.dataset.p === 'all'); x.setAttribute('aria-pressed', x.dataset.p === 'all'); }); renderList(); }
+document.getElementById('ld-period').onclick = e => { const b = e.target.closest('button'); if (!b) return; LD.period = b.dataset.p; LD.page = 1; document.querySelectorAll('#ld-period button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); renderList(); };
+gSel.onchange = () => { LD.genre = gSel.value; LD.page = 1; renderList(); };
+document.getElementById('ld-format').onchange = e => { LD.format = e.target.value; LD.page = 1; renderList(); };
+document.getElementById('ld-sort').onchange = e => { LD.sort = e.target.value; LD.page = 1; renderList(); };
+document.getElementById('ld-pages').onclick = e => { const b = e.target.closest('button'); if (b) { LD.page = +b.dataset.pg; renderList(); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+
+function route() {
+  const id = qs('list');
+  if (id) openList(id, false);
+  else { document.getElementById('lists-index').hidden = false; document.getElementById('list-detail').hidden = true; document.title = 'Lists — Goodreads'; }
+}
+window.addEventListener('popstate', route);
+route();
+</script>
+</body>
+</html>

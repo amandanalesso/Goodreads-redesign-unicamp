@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goodreads — Top books right now</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<!--
+  REDESIGN — Home como vitrine de listas (modelo streaming).
+  Decisões ligadas à análise heurística (goodreads-heuristica.csv):
+  #17 sem anúncio entre header e conteúdo; #20 atalho "/" para busca;
+  #22 hierarquia de botões consistente (Buy = primário marrom, Want to Read = outline);
+  #11 seções rotuladas "Editorial" vs "From the community";
+  #1  quick-view fecha por ESC, clique fora e X contrastado;
+  #12 preço real por formato, sem "$0.00" ambíguo.
+-->
+<div id="site-header"></div>
+
+<main id="main" tabindex="-1">
+<h1 class="sr-only">Goodreads: the top books right now</h1>
+<section class="hero hero--link" aria-labelledby="hero-title" id="hero">
+  <div class="container hero-grid">
+    <div class="hero-text">
+      <div class="hero-eyebrow">A line worth reading</div>
+      <div class="hero-from"><span class="hero-title" id="hero-title"></span><span class="hero-author" id="hero-author"></span></div>
+      <blockquote class="hero-quote" id="hero-quote"></blockquote>
+    </div>
+    <div class="hero-single" id="hero-single"></div>
+  </div>
+  <div class="hero-controls">
+    <button type="button" class="hero-pause" id="hero-pause"></button>
+    <div class="hero-dots" id="hero-dots" role="group" aria-label="Choose a featured book"></div>
+  </div>
+</section>
+
+<div class="filter-bar" role="region" aria-label="Catalog filters">
+  <div class="container">
+    <div class="f-group"><label>Period</label>
+      <div class="period-tabs" id="period-tabs">
+        <button data-p="week" class="on" aria-pressed="true">This week</button><button data-p="month" aria-pressed="false">This month</button><button data-p="year" aria-pressed="false">Last 12 months</button><button data-p="all" aria-pressed="false">All time</button>
+      </div>
+    </div>
+    <div class="f-group"><label for="f-genre">Genre</label><select class="select" id="f-genre"><option value="">All genres</option></select></div>
+    <div class="f-group"><label for="f-format">Format</label><select class="select" id="f-format"><option value="">Any format</option><option>Kindle</option><option>Paperback</option><option>Hardcover</option><option>Audiobook</option></select></div>
+    <div class="f-group"><label for="f-rating">Rating</label><select class="select" id="f-rating"><option value="0">Any rating</option><option value="4.5">4.5 ★ &amp; up</option><option value="4">4.0 ★ &amp; up</option><option value="3.5">3.5 ★ &amp; up</option></select></div>
+    <div class="f-group"><label for="f-lang">Language</label><select class="select" id="f-lang"><option value="">Any language</option></select></div>
+    <a href="#" class="f-reset" id="f-reset">Reset</a>
+  </div>
+</div>
+
+<div id="rows"></div>
+</main>
+
+<div id="site-footer"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+renderChrome('home');
+
+/* ---- Hero rotativo: topo de funil, só a citação ---- */
+const heroBooks = ['veias-abertas', 'capitaes-areia', 'casa-espiritos'].map(id => BOOK_BY_ID[id]);
+let heroIdx = 0;
+function renderHero() {
+  const b = heroBooks[heroIdx];
+  const hq = document.getElementById('hero-quote'); hq.textContent = b.quote; hq.lang = b.quoteLang || 'en';
+  document.getElementById('hero-author').textContent = b.author;
+  document.getElementById('hero-single').innerHTML = `<img src="${b.cover}" alt="${esc(b.title)}">`;
+  document.getElementById('hero-title').innerHTML = `<a href="book.html?id=${b.id}" style="color:inherit" class="hero-link">${esc(b.title)}</a>`;
+  document.getElementById('hero').dataset.href = `book.html?id=${b.id}`;
+  document.getElementById('hero-dots').innerHTML = heroBooks.map((x, i) => `<button type="button" aria-label="Show ${esc(x.title)}" ${i === heroIdx ? 'aria-current="true"' : ''} class="${i === heroIdx ? 'on' : ''}" data-i="${i}"></button>`).join('');
+}
+document.getElementById('hero-dots').addEventListener('click', e => { e.stopPropagation(); if (!e.target.closest('button')) return; const d = e.target.closest('button'); if (d) { heroIdx = +d.dataset.i; renderHero(); } });
+// Banner inteiro clicável (os pontos continuam só trocando o livro)
+document.getElementById('hero').addEventListener('click', e => { if (e.target.closest('.hero-controls') || e.target.closest('a')) return; location.href = document.getElementById('hero').dataset.href; });
+renderHero();
+// WCAG 2.2.2: rotação automática com botão de pausa; começa pausada se o sistema pede menos movimento
+let heroPaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pauseBtn = document.getElementById('hero-pause');
+function paintPause() {
+  pauseBtn.innerHTML = heroPaused ? '<span aria-hidden="true">\u25B6</span><span>Play</span>' : '<span aria-hidden="true">\u275A\u275A</span><span>Pause</span>';
+  pauseBtn.setAttribute('aria-label', heroPaused ? 'Play carousel' : 'Pause carousel');
+}
+pauseBtn.addEventListener('click', e => { e.stopPropagation(); heroPaused = !heroPaused; paintPause(); });
+paintPause();
+setInterval(() => {
+  const hero = document.getElementById('hero');
+  if (heroPaused || hero.matches(':hover, :focus-within') || document.getElementById('qv')?.classList.contains('open')) return;
+  heroIdx = (heroIdx + 1) % heroBooks.length; renderHero();
+}, 8000);
+
+/* ---- Filtros ---- */
+const gSel = document.getElementById('f-genre'); GENRES.forEach(g => gSel.insertAdjacentHTML('beforeend', `<option>${g}</option>`));
+const lSel = document.getElementById('f-lang'); LANGUAGES.forEach(l => lSel.insertAdjacentHTML('beforeend', `<option>${l}</option>`));
+document.getElementById('period-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; FILTER_STATE.period = b.dataset.p; document.querySelectorAll('#period-tabs button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); renderRows(); });
+gSel.onchange = () => { FILTER_STATE.genre = gSel.value; renderRows(); };
+document.getElementById('f-format').onchange = e => { FILTER_STATE.format = e.target.value; renderRows(); };
+document.getElementById('f-rating').onchange = e => { FILTER_STATE.rating = +e.target.value; renderRows(); };
+lSel.onchange = () => { FILTER_STATE.lang = lSel.value; renderRows(); };
+document.getElementById('f-reset').onclick = e => { e.preventDefault(); Object.assign(FILTER_STATE, { genre: '', period: 'all', format: '', rating: 0, lang: '' }); gSel.value = ''; lSel.value = ''; document.getElementById('f-format').value = ''; document.getElementById('f-rating').value = '0'; document.querySelectorAll('#period-tabs button').forEach(x => { x.classList.toggle('on', x.dataset.p === 'all'); x.setAttribute('aria-pressed', x.dataset.p === 'all'); }); renderRows(); };
+
+const PERIOD_LABEL = { week: 'this week', month: 'this month', year: 'in the last 12 months', all: 'of all time' };
+
+function renderRows() {
+  const root = document.getElementById('rows'); root.innerHTML = '';
+  const f = FILTER_STATE;
+  const base = BOOKS.filter(b => (!f.genre || b.genre === f.genre) && (!f.format || b.formats.includes(f.format)) && (!f.rating || b.rating >= f.rating) && (!f.lang || b.lang === f.lang));
+  const inPeriod = base.filter(periodMatch);
+
+  // 1. Top 10 (ranking numerado) — ordena por "want to read" + nota no período
+  const top10 = [...inPeriod].sort((a, b) => (b.wantToRead * b.rating) - (a.wantToRead * a.rating)).slice(0, 10);
+  renderRow(root, { title: `Top 10 in the World ${PERIOD_LABEL[f.period]}`, sub: 'ranked by reads, ratings and shelf adds', books: top10, label: 'editorial', rank: true, seeAll: 'lists.html?list=top-world' });
+
+  // 2. Choice Awards
+  const choice = listBooks('choice-2025').filter(b => base.includes(b));
+  renderRow(root, { title: "Readers' Favorite Books 2025", sub: 'Goodreads Choice Awards winners', books: choice, label: 'editorial', showAward: true, seeAll: 'lists.html?list=choice-2025' });
+
+  // 3. Trending por gênero (ou gênero filtrado)
+  const trendingGenre = f.genre || 'Fiction';
+  // Se o período atual não tiver pelo menos 4 livros do gênero, amplia o período até ter
+  let trending = inPeriod.filter(b => b.genre === trendingGenre);
+  if (trending.length < 4) trending = base.filter(b => b.genre === trendingGenre);
+  trending = trending.sort((a, b) => b.ratings - a.ratings).slice(0, 12);
+  renderRow(root, { title: `Trending in ${trendingGenre}`, books: trending, label: 'editorial', seeAll: `search.html?genre=${encodeURIComponent(trendingGenre)}` });
+
+  // 4. New releases
+  const fresh = base.filter(b => b.year >= 2024).sort((a, b) => b.wantToRead - a.wantToRead);
+  renderRow(root, { title: 'New Releases', sub: '2025 – 2026', books: fresh, label: 'editorial', seeAll: 'lists.html?list=new-releases' });
+
+  // 5. Most wanted (comunidade)
+  const wanted = [...base].sort((a, b) => b.wantToRead - a.wantToRead).slice(0, 12);
+  renderRow(root, { title: 'Most Wanted to Read', sub: 'what readers are shelving right now', books: wanted, label: 'community', seeAll: 'lists.html?list=most-wanted' });
+
+  // 6. Best Books Ever (comunidade)
+  const bestEver = listBooks('best-ever').filter(b => base.includes(b)).slice(0, 16);
+  renderRow(root, { title: 'Best Books Ever', sub: 'voted by 258K readers', books: bestEver, label: 'community', seeAll: 'lists.html?list=best-ever' });
+
+  // 7. Highest rated
+  const topRated = [...base].filter(b => b.ratings > 500000).sort((a, b) => b.rating - a.rating).slice(0, 12);
+  renderRow(root, { title: 'Highest Rated', sub: 'with 500K+ ratings', books: topRated, label: 'community' });
+}
+renderRows();
+</script>
+</body>
+</html>

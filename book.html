@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book — Goodreads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<!--
+  REDESIGN — Página de detalhes do livro (apenas para os títulos do hero: detail: true).
+  Estrutura fiel ao Goodreads (capa + ações à esquerda, título/autor/nota/descrição à direita),
+  com Buy como ação primária (#22), preços reais por formato (#12), breadcrumb (#7)
+  e citações no idioma original como gancho de topo de funil.
+-->
+<div id="site-header"></div>
+
+<main class="container" id="main" tabindex="-1"></main>
+
+<div id="site-footer"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+renderChrome('');
+const b = BOOK_BY_ID[qs('id')];
+const main = document.getElementById('main');
+
+if (!b || !b.detail) {
+  main.innerHTML = `<div class="empty"><h2>This book doesn’t have a full page in the prototype</h2><p>Only the featured titles on the Home banner have detail pages.</p><a class="btn btn-primary btn-lg" href="index.html">Back to Home</a></div>`;
+} else {
+  document.title = `${b.title} by ${b.author} — Goodreads`;
+  const also = BOOKS.filter(x => x.id !== b.id && (x.lang === b.lang || x.genre === b.genre)).sort((x, y) => y.ratings - x.ratings).slice(0, 12);
+  const fmtNote = { Kindle: 'Instant delivery', Paperback: 'Free delivery over $35', Hardcover: 'Ships in 2 days', Audiobook: 'Narrated edition' };
+
+  main.innerHTML = `
+  <nav class="breadcrumb" aria-label="Breadcrumb" style="padding-top:16px"><a href="index.html">Home</a> › <a href="search.html?genre=${encodeURIComponent(b.genre)}">${esc(b.genre)}</a> › <span aria-current="page">${esc(b.title)}</span></nav>
+  <article class="book-page">
+    <aside class="bp-left">
+      <img src="${b.cover}" alt="Cover of ${esc(b.title)}">
+      <div class="bp-actions">
+        <button class="btn btn-buy" id="bp-buy">Buy now · ${money(b.price[b.formats[0]])}</button>
+        <button class="btn btn-outline" id="bp-want">Want to Read</button>
+        <div class="bp-rate"><div class="rate-stars" id="bp-rate" role="group" aria-label="Rate this book"></div>Rate this book</div>
+      </div>
+    </aside>
+    <section class="bp-right">
+      ${b.series ? `<div class="bp-series">${esc(b.series)} #${b.volume}</div>` : ''}
+      <h1>${esc(b.title)}</h1>
+      ${b.origTitle && b.origTitle !== b.title ? `<div class="bp-orig">Original title: <i>${esc(b.origTitle)}</i></div>` : ''}
+      <div class="bp-author"><a href="search.html?q=${encodeURIComponent(b.author)}&scope=author">${esc(b.author)}</a></div>
+      <div class="bp-rating">${starsHTML(b)}</div>
+      <p class="bp-description"${b.textLang ? ` lang="${b.textLang}"` : ''}>${esc(b.description || b.blurb)}</p>
+      <div class="bp-genres"><span class="lbl">Genres</span><span class="chip">${esc(b.genre)}</span><span class="chip">${esc(b.lang === 'Portuguese' ? 'Brazilian Literature' : 'Latin American Literature')}</span>${b.origLang === 'Spanish' ? '<span class="chip">Translated</span>' : ''}</div>
+      <div class="bp-facts">${b.pages} pages · ${b.publisher || 'Paperback'}<br>First published ${b.year}</div>
+
+      <div class="bp-section">
+        <h2>Choose a format <span class="muted">prices include tax</span></h2>
+        <div class="bp-formats" id="bp-formats">${b.formats.map((f, i) => `<label class="bp-format ${i === 0 ? 'on' : ''}"><input type="radio" name="fmt" value="${f}" ${i === 0 ? 'checked' : ''} class="sr-only"><b>${f}</b><small>${fmtNote[f]}</small><span class="f-price">${money(b.price[f])}</span></label>`).join('')}</div>
+      </div>
+
+      <div class="bp-section bp-quotes-section">
+        <h2>Top quotes from the book <span class="muted">in the original ${esc(b.origLang)}</span></h2>
+        <div class="qc-wrap">
+          <button class="row-arrow l qc-arrow" id="qc-prev" aria-label="Previous quote">‹</button>
+          <div class="qc-track" id="qc-track">${(b.quotes || [b.quote]).map(q => `<blockquote class="bp-quote" lang="${b.quoteLang || 'en'}">${esc(q)}<span class="likes">— ${esc(b.author)}, <i>${esc(b.origTitle || b.title)}</i></span></blockquote>`).join('')}</div>
+          <button class="row-arrow r qc-arrow" id="qc-next" aria-label="Next quote">›</button>
+        </div>
+        <div class="hero-dots qc-dots" id="qc-dots" role="group" aria-label="Choose a quote"></div>
+      </div>
+
+      <div class="bp-section">
+        <h2>Book details &amp; editions</h2>
+        <dl class="bp-details">
+          <dt>Original language</dt><dd>${esc(b.origLang)}</dd>
+          ${b.translator ? `<dt>Translation</dt><dd>${esc(b.translator)}</dd>` : ''}
+          <dt>Publisher</dt><dd>${esc(b.publisher || '—')}</dd>
+          <dt>Pages</dt><dd>${b.pages}</dd>
+          <dt>Formats</dt><dd>${b.formats.join(', ')}</dd>
+          <dt>Ratings</dt><dd>${fmtNum(b.ratings)} ratings on Goodreads</dd>
+        </dl>
+      </div>
+    </section>
+  </article>
+  <div class="bp-row" id="bp-also"></div>
+  <section class="bp-reviews" id="bp-reviews">
+    <h2>Community reviews</h2>
+    <div class="rv-layout">
+      <aside class="rv-summary">
+        <div class="rv-big">${b.rating.toFixed(2)}</div>
+        <div class="stars" style="font-size:22px"><span aria-hidden="true">${'\u2605'.repeat(Math.round(b.rating))}${'\u2606'.repeat(5 - Math.round(b.rating))}</span></div>
+        <div class="rv-count">${fmtNum(b.ratings)} ratings · ${fmtNum(Math.round(b.ratings * 0.11))} reviews</div>
+        <ul class="rv-dist">${(b.ratingDist || [60, 25, 10, 4, 1]).map((pct, i) => `<li><span class="rv-star">${5 - i} stars</span><span class="rv-bar"><span style="width:${pct}%"></span></span><span class="rv-pct">${pct}%</span></li>`).join('')}</ul>
+        <button class="btn btn-outline" id="rv-write">Write a review</button>
+      </aside>
+      <div class="rv-list">
+        ${(b.reviews || []).map(r => `
+        <article class="rv-item">
+          <div class="rv-head">
+            <span class="avatar">${esc(r.name[0])}</span>
+            <div><b>${esc(r.name)}</b><small>${r.date} · shelved as ${esc(r.shelves)}</small></div>
+            <span class="stars" aria-label="${r.rating} out of 5"><span aria-hidden="true">${'\u2605'.repeat(r.rating)}${'\u2606'.repeat(5 - r.rating)}</span></span>
+          </div>
+          <p lang="pt-BR">${esc(r.text)}</p>
+          <div class="rv-actions"><button class="btn-link rv-like">Like</button><button class="btn-link rv-comment">Comment</button></div>
+        </article>`).join('')}
+        <div class="rv-more"><button class="btn btn-outline" id="rv-more">Show more reviews <span class="muted">(${fmtNum(Math.round(b.ratings * 0.11) - (b.reviews || []).length)} remaining)</span></button></div>
+      </div>
+    </div>
+  </section>`;
+
+  const buy = document.getElementById('bp-buy');
+  document.querySelectorAll('#bp-formats input').forEach(r => r.addEventListener('change', () => {
+    document.querySelectorAll('#bp-formats .bp-format').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+    buy.textContent = `Buy now · ${money(b.price[r.value])}`;
+  }));
+  buy.onclick = () => { const f = document.querySelector('#bp-formats input:checked').value; toast(`Added "${b.title}" (${f}) to your cart · ${money(b.price[f])}`); };
+  document.getElementById('bp-want').onclick = () => toast(`"${b.title}" added to Want to Read`);
+  // Avaliação por teclado: cinco botões com nome
+  const rate = document.getElementById('bp-rate');
+  rate.innerHTML = [1, 2, 3, 4, 5].map(i => `<button type="button" class="rate-star" data-i="${i}" aria-label="Rate ${i} star${i > 1 ? 's' : ''}" aria-pressed="false">☆</button>`).join('');
+  rate.addEventListener('click', e => {
+    const btn = e.target.closest('.rate-star'); if (!btn) return; const n = +btn.dataset.i;
+    rate.querySelectorAll('.rate-star').forEach((st, idx) => { st.textContent = idx < n ? '★' : '☆'; st.setAttribute('aria-pressed', idx < n); });
+    toast(`You rated "${b.title}" ${n} of 5`);
+  });
+  renderRow(document.getElementById('bp-also'), { title: 'Readers also enjoyed', books: also, label: 'community' });
+
+  document.getElementById('rv-write').onclick = () => toast('Sign in to write a review');
+  document.getElementById('rv-more').onclick = () => toast('Loading more reviews\u2026 (not available in the prototype)');
+  document.querySelectorAll('.rv-like').forEach(b => b.onclick = () => { b.textContent = 'Liked'; b.disabled = true; });
+  document.querySelectorAll('.rv-comment').forEach(b => b.onclick = () => toast('Sign in to comment'));
+
+  // Carrossel de citações
+  const track = document.getElementById('qc-track'), dots = document.getElementById('qc-dots');
+  const slides = [...track.children];
+  const step = () => slides[0].offsetWidth + 16;
+  const current = () => Math.round(track.scrollLeft / step());
+  const paint = () => dots.innerHTML = slides.map((_, i) => `<button type="button" aria-label="Show quote ${i + 1} of ${slides.length}" ${i === current() ? 'aria-current="true"' : ''} class="${i === current() ? 'on' : ''}" data-i="${i}"></button>`).join('');
+  document.getElementById('qc-prev').onclick = () => track.scrollBy({ left: -step(), behavior: 'smooth' });
+  document.getElementById('qc-next').onclick = () => track.scrollBy({ left: step(), behavior: 'smooth' });
+  dots.onclick = e => { const d = e.target.closest('button'); if (d) track.scrollTo({ left: +d.dataset.i * step(), behavior: 'smooth' }); };
+  track.addEventListener('scroll', () => requestAnimationFrame(paint));
+  paint();
+}
+</script>
+</body>
+</html>
